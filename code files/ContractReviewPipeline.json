@@ -1,0 +1,150 @@
+{
+  "Comment": "Day 3 contract processing workflow with Textract polling, clause preprocessing, Bedrock analysis, and failure handling",
+  "StartAt": "StartTextract",
+  "States": {
+    "StartTextract": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:eu-west-1:754056706645:function:StartTextract",
+        "Payload.$": "$"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "MarkJobFailed"
+        }
+      ],
+      "Next": "WaitForTextract"
+    },
+    "WaitForTextract": {
+      "Type": "Wait",
+      "Seconds": 20,
+      "Next": "CheckTextractResult"
+    },
+    "CheckTextractResult": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:eu-west-1:754056706645:function:CheckTextractResult",
+        "Payload.$": "$"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "MarkJobFailed"
+        }
+      ],
+      "Next": "TextractComplete?"
+    },
+    "TextractComplete?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.textract_status",
+          "StringEquals": "IN_PROGRESS",
+          "Next": "WaitForTextract"
+        },
+        {
+          "Variable": "$.textract_status",
+          "StringEquals": "SUCCEEDED",
+          "Next": "ClauseClassifierAndRiskProcessor"
+        }
+      ],
+      "Default": "BuildTextractFailure"
+    },
+    "BuildTextractFailure": {
+      "Type": "Pass",
+      "Result": {
+        "Error": "TextractDidNotSucceed",
+        "Cause": "Textract status was not SUCCEEDED or IN_PROGRESS."
+      },
+      "ResultPath": "$.error",
+      "Next": "MarkJobFailed"
+    },
+    "ClauseClassifierAndRiskProcessor": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:eu-west-1:754056706645:function:ClauseClassifierAndRiskProcessor",
+        "Payload.$": "$"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "MarkJobFailed"
+        }
+      ],
+      "Next": "BedrockExplainer"
+    },
+    "BedrockExplainer": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:eu-west-1:754056706645:function:BedrockExplainer",
+        "Payload": {
+          "job_id.$": "$.job_id",
+          "bucket.$": "$.bucket",
+          "clauses_s3_key.$": "$.clauses_s3_key",
+          "preliminary_analysis_method.$": "$.preliminary_analysis_method",
+          "preliminary_analysis_model_id.$": "$.preliminary_analysis_model_id",
+          "execution_arn.$": "$$.Execution.Id"
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "MarkJobFailed"
+        }
+      ],
+      "Next": "SuccessState"
+    },
+    "MarkJobFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "ContractAnalysisJobs",
+        "Key": {
+          "job_id": {
+            "S.$": "$.job_id"
+          }
+        },
+        "UpdateExpression": "SET #status = :failed, error_message = :message",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":failed": {
+            "S": "FAILED"
+          },
+          ":message": {
+            "S.$": "States.JsonToString($.error)"
+          }
+        }
+      },
+      "Next": "FailState"
+    },
+    "SuccessState": {
+      "Type": "Succeed"
+    },
+    "FailState": {
+      "Type": "Fail"
+    }
+  }
+}

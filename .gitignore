@@ -1,0 +1,62 @@
+# Archives and unrelated recruitment documents
+*.zip
+*.7z
+*.rar
+Job_Description*.pdf
+JD*.pdf
+
+# Local reports, course material, and planning/agent notes
+# The final report PDF and root architecture diagrams remain included.
+/report_assets/
+/assets/
+/report.md
+/report_2.md
+/aws_contract_review_project_context.md
+/day1.md
+/day2.md
+/day3.md
+/clean_up.md
+/AGENTS.md
+/mcp_init_test.json
+
+# Local browser demo helpers (the published project focuses on the AWS backend)
+/index.html
+/ui_proxy.py
+
+# Ad hoc output downloads; retain code files/final_results.json as evidence
+/analysis-result.json
+
+# Python environments and generated files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+
+# Editor, operating-system, and temporary files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+*.tmp
+*.bak
+*.swp
+*~
